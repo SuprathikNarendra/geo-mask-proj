@@ -127,4 +127,4 @@ ax2.set_ylabel("Error (m)")
 st.pyplot(fig2)
 
 st.subheader("Privatized Data Preview")
-st.dataframe(noisy_df.head(20))
+st.dataframe(noisy_df.head(20).astype(str))
