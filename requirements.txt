@@ -3,5 +3,6 @@ pandas
 matplotlib
 seaborn
 streamlit
+altair==4.2.2
 folium
 streamlit-folium
