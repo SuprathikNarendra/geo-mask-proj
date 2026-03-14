@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import time
 
 import streamlit as st
 import pandas as pd
@@ -8,6 +9,7 @@ import folium
 from streamlit_folium import folium_static
 import matplotlib.pyplot as plt
 import seaborn as sns
+import requests
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -15,12 +17,14 @@ if str(ROOT) not in sys.path:
 
 from src.gps_simulator import generate_random_trajectories
 from src.privacy_pipeline import apply_noise_to_df
+from src.geo_noise import apply_geo_indistinguishability
 from src.metrics import mean_location_error, max_privacy_radius, service_accuracy, generate_pois
 from src.attacks import evaluate_attacks
 
 st.set_page_config(page_title="Geo-Indistinguishability Dashboard", layout="wide")
 
 st.title("Privacy-Preserving Location Sharing Using Geo-Indistinguishability")
+st.caption("Live demo: enter a current location and destination in Bangalore, then mask the current location based on epsilon.")
 
 with st.sidebar:
     st.header("Data Source")
@@ -41,11 +45,75 @@ center_lat = float(raw_df["latitude"].mean())
 center_lon = float(raw_df["longitude"].mean())
 pois = generate_pois(center_lat, center_lon)
 
+@st.cache_data(ttl=3600)
+def geocode_place(query: str) -> tuple[float, float] | None:
+    if not query.strip():
+        return None
+    time.sleep(1.0)
+    url = "https://nominatim.openstreetmap.org/search"
+    params = {"q": query, "format": "json", "limit": 1}
+    headers = {"User-Agent": "geo-mask-proj/1.0 (research demo)"}
+    resp = requests.get(url, params=params, headers=headers, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
+    if not data:
+        return None
+    return float(data[0]["lat"]), float(data[0]["lon"])
+
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    st.subheader("Map View")
-    fmap = folium.Map(location=[center_lat, center_lon], zoom_start=13, tiles="CartoDB positron")
+    st.subheader("Map View (Bangalore)")
+    default_center = (12.9716, 77.5946)
+
+    with st.expander("Live Bangalore Demo (Current → Destination)", expanded=True):
+        origin_text = st.text_input("Current location (Bangalore)", value="MG Road, Bangalore")
+        dest_text = st.text_input("Destination (Bangalore)", value="Koramangala, Bangalore")
+        st.caption("Current location is masked; destination is shown as entered.")
+
+    origin = geocode_place(origin_text + ", Bangalore, India")
+    dest = geocode_place(dest_text + ", Bangalore, India")
+
+    demo_center = default_center
+    if origin:
+        demo_center = origin
+
+    fmap = folium.Map(location=[demo_center[0], demo_center[1]], zoom_start=12, tiles="CartoDB positron")
+
+    if origin:
+        noisy_origin_lat, noisy_origin_lon, _ = apply_geo_indistinguishability(
+            origin[0], origin[1], epsilon
+        )
+        folium.Marker(
+            location=[origin[0], origin[1]],
+            popup="True Current Location",
+            icon=folium.Icon(color="blue", icon="user"),
+        ).add_to(fmap)
+        folium.Marker(
+            location=[noisy_origin_lat, noisy_origin_lon],
+            popup="Masked Current Location",
+            icon=folium.Icon(color="red", icon="eye-slash"),
+        ).add_to(fmap)
+        folium.PolyLine(
+            locations=[origin, (noisy_origin_lat, noisy_origin_lon)],
+            color="red",
+            weight=2,
+            opacity=0.7,
+        ).add_to(fmap)
+    else:
+        st.warning("Origin not found. Try a more specific Bangalore location.")
+
+    if dest:
+        folium.Marker(
+            location=[dest[0], dest[1]],
+            popup="Destination (Unmasked)",
+            icon=folium.Icon(color="green", icon="flag"),
+        ).add_to(fmap)
+    else:
+        st.warning("Destination not found. Try a more specific Bangalore location.")
+
+    st.markdown("---")
+    st.subheader("Simulated Data Overlay")
 
     for r in raw_df.itertuples():
         folium.CircleMarker(
