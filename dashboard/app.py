@@ -88,7 +88,6 @@ with col2:
 
 st.subheader("Privacy-Utility Trade-off")
 
-@st.cache_data
 def compute_tradeoff(df: pd.DataFrame):
     eps_values = [0.1, 0.3, 0.5, 1.0, 2.0]
     records = []
@@ -108,7 +107,7 @@ def compute_tradeoff(df: pd.DataFrame):
         )
     return pd.DataFrame(records)
 
-tradeoff_df = compute_tradeoff(raw_df)
+tradeoff_df = compute_tradeoff(raw_df.copy())
 
 fig, ax = plt.subplots(1, 2, figsize=(10, 4))
 sns.lineplot(data=tradeoff_df, x="epsilon", y="mean_error_m", marker="o", ax=ax[0])
