@@ -29,8 +29,14 @@ st.caption("Live demo: enter a current location and destination in Bangalore, th
 with st.sidebar:
     st.header("Data Source")
     data_mode = st.selectbox("Select data source", ["Simulate", "Load sample CSV"])
-    epsilon = st.slider("Epsilon (privacy parameter)", min_value=0.1, max_value=2.0, value=0.5, step=0.1)
-    st.caption("Lower epsilon = stronger privacy (more noise)")
+    privacy_mode = st.selectbox("Privacy control", ["Set epsilon", "Set radius (meters)"])
+    if privacy_mode == "Set epsilon":
+        epsilon = st.slider("Epsilon (privacy parameter)", min_value=0.1, max_value=2.0, value=0.5, step=0.1)
+        st.caption("Lower epsilon = stronger privacy (more noise)")
+    else:
+        radius_m = st.slider("Approx. privacy radius (m)", min_value=100, max_value=5000, value=800, step=100)
+        epsilon = 2.0 / float(radius_m)
+        st.caption(f"Epsilon set to {epsilon:.3f} for ~{radius_m} m radius")
 
 @st.cache_data
 def load_data(mode: str) -> pd.DataFrame:
