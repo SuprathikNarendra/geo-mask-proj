@@ -5,7 +5,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import folium
-from streamlit_folium import st_folium
+from streamlit_folium import folium_static
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -68,7 +68,7 @@ with col1:
     for lat, lon in pois:
         folium.Marker(location=[lat, lon], icon=folium.Icon(color="green", icon="info-sign")).add_to(fmap)
 
-    st_folium(fmap, width=900, height=520)
+    folium_static(fmap, width=900, height=520)
 
 with col2:
     st.subheader("Metrics")
