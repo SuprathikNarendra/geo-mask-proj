@@ -1,3 +1,6 @@
+from pathlib import Path
+import sys
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -5,6 +8,10 @@ import folium
 from streamlit_folium import st_folium
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from src.gps_simulator import generate_random_trajectories
 from src.privacy_pipeline import apply_noise_to_df
