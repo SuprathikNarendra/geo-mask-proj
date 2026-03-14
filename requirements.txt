@@ -1,6 +1,6 @@
 numpy
 pandas==2.1.4
-pyarrow==12.0.1
+pyarrow==14.0.2
 matplotlib
 seaborn
 streamlit
