@@ -18,7 +18,7 @@ if str(ROOT) not in sys.path:
 from src.gps_simulator import generate_random_trajectories
 from src.privacy_pipeline import apply_noise_to_df
 from src.geo_noise import apply_geo_indistinguishability
-from src.metrics import mean_location_error, max_privacy_radius, service_accuracy, generate_pois
+from src.metrics import mean_location_error, max_privacy_radius, service_accuracy, generate_pois, haversine_m
 from src.attacks import evaluate_attacks
 
 st.set_page_config(page_title="Geo-Indistinguishability Dashboard", layout="wide")
@@ -240,6 +240,48 @@ st.pyplot(fig2)
 
 st.subheader("Privatized Data Preview")
 st.dataframe(noisy_df.head(20).astype(str))
+
+st.subheader("Additional Visuals")
+tab1, tab2 = st.tabs(["Error Distributions", "Error vs Epsilon"])
+
+with tab1:
+    errors = [
+        haversine_m(r.latitude, r.longitude, r.noisy_latitude, r.noisy_longitude)
+        for r in noisy_df.itertuples()
+    ]
+    fig3, ax3 = plt.subplots(1, 2, figsize=(10, 4))
+    sns.histplot(errors, bins=30, ax=ax3[0], color="#d62728")
+    ax3[0].set_title("Noise Distance Histogram")
+    ax3[0].set_xlabel("Distance (m)")
+    ax3[0].set_ylabel("Count")
+
+    sorted_err = np.sort(errors)
+    cdf = np.arange(1, len(sorted_err) + 1) / len(sorted_err) if len(sorted_err) else []
+    ax3[1].plot(sorted_err, cdf, color="#1f77b4")
+    ax3[1].set_title("Noise Distance CDF")
+    ax3[1].set_xlabel("Distance (m)")
+    ax3[1].set_ylabel("CDF")
+    st.pyplot(fig3)
+
+with tab2:
+    eps_values = [0.1, 0.3, 0.5, 1.0, 2.0]
+    samples = []
+    for eps in eps_values:
+        noisy = apply_noise_to_df(raw_df, eps, seed=int(seed))
+        for r in noisy.itertuples():
+            samples.append(
+                {
+                    "epsilon": eps,
+                    "error_m": haversine_m(r.latitude, r.longitude, r.noisy_latitude, r.noisy_longitude),
+                }
+            )
+    err_df = pd.DataFrame(samples)
+    fig4, ax4 = plt.subplots(figsize=(8, 4))
+    sns.boxplot(data=err_df, x="epsilon", y="error_m", ax=ax4)
+    ax4.set_title("Location Error Distribution by Epsilon")
+    ax4.set_xlabel("Epsilon")
+    ax4.set_ylabel("Error (m)")
+    st.pyplot(fig4)
 
 st.subheader("Downloads")
 metrics_summary = {
