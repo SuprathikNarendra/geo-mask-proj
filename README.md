@@ -82,6 +82,17 @@ These illustrate the privacy-utility tradeoff as epsilon varies.
 ## Documentation
 See `docs/research_notes.md` for threat modeling notes and extension ideas.
 
+## Live Bangalore Demo
+The dashboard includes a live Bangalore demo that lets users enter a current location and destination.
+The current location is masked using geo-indistinguishability, while the destination is shown as entered.
+Place-name lookup uses OpenStreetMap Nominatim (free, rate-limited, demo usage only).
+POIs can be loaded from OpenStreetMap (Overpass API) or simulated locally.
+
+## Limitations and Ethics
+- Nominatim and Overpass are rate-limited and intended for light, non-production use.
+- Geo-indistinguishability protects individual locations but does not guarantee full trajectory privacy.
+- Stronger privacy reduces service accuracy; deployments should document the trade-offs clearly.
+
 ## Research Extensions (Designed for)
 - Trajectory-level privacy
 - Adaptive geo-indistinguishability

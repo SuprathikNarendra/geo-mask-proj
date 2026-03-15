@@ -29,6 +29,8 @@ st.caption("Live demo: enter a current location and destination in Bangalore, th
 with st.sidebar:
     st.header("Data Source")
     data_mode = st.selectbox("Select data source", ["Simulate", "Load sample CSV"])
+    seed = st.number_input("Random seed", min_value=0, max_value=10_000, value=42, step=1)
+    poi_mode = st.selectbox("POI source", ["Simulated POIs", "Bangalore OSM POIs"])
     privacy_mode = st.selectbox("Privacy control", ["Set epsilon", "Set radius (meters)"])
     if privacy_mode == "Set epsilon":
         epsilon = st.slider("Epsilon (privacy parameter)", min_value=0.1, max_value=2.0, value=0.5, step=0.1)
@@ -39,17 +41,24 @@ with st.sidebar:
         st.caption(f"Epsilon set to {epsilon:.3f} for ~{radius_m} m radius")
 
 @st.cache_data
-def load_data(mode: str) -> pd.DataFrame:
+def load_data(mode: str, seed: int) -> pd.DataFrame:
     if mode == "Load sample CSV":
         return pd.read_csv("data/sample_locations.csv")
-    return generate_random_trajectories()
+    return generate_random_trajectories(seed=seed)
 
-raw_df = load_data(data_mode)
-noisy_df = apply_noise_to_df(raw_df, epsilon)
+raw_df = load_data(data_mode, int(seed))
+noisy_df = apply_noise_to_df(raw_df, epsilon, seed=int(seed))
 
 center_lat = float(raw_df["latitude"].mean())
 center_lon = float(raw_df["longitude"].mean())
-pois = generate_pois(center_lat, center_lon)
+if poi_mode == "Bangalore OSM POIs":
+    try:
+        pois = fetch_bangalore_pois()
+    except Exception:
+        st.warning("OSM POIs unavailable. Falling back to simulated POIs.")
+        pois = generate_pois(center_lat, center_lon)
+else:
+    pois = generate_pois(center_lat, center_lon)
 
 @st.cache_data(ttl=3600)
 def geocode_place(query: str) -> tuple[float, float] | None:
@@ -65,6 +74,29 @@ def geocode_place(query: str) -> tuple[float, float] | None:
     if not data:
         return None
     return float(data[0]["lat"]), float(data[0]["lon"])
+
+@st.cache_data(ttl=3600)
+def fetch_bangalore_pois() -> list[tuple[float, float]]:
+    overpass_url = "https://overpass-api.de/api/interpreter"
+    query = """
+    [out:json][timeout:25];
+    area[name="Bengaluru"];
+    (node["amenity"~"hospital|restaurant|school|bank"](area);
+     node["tourism"="attraction"](area);
+     node["shop"="mall"](area););
+    out center 200;
+    """
+    headers = {"User-Agent": "geo-mask-proj/1.0 (research demo)"}
+    resp = requests.get(overpass_url, params={"data": query}, headers=headers, timeout=25)
+    resp.raise_for_status()
+    data = resp.json()
+    pois = []
+    for el in data.get("elements", []):
+        lat = el.get("lat")
+        lon = el.get("lon")
+        if lat is not None and lon is not None:
+            pois.append((lat, lon))
+    return pois
 
 col1, col2 = st.columns([2, 1])
 
@@ -202,3 +234,24 @@ st.pyplot(fig2)
 
 st.subheader("Privatized Data Preview")
 st.dataframe(noisy_df.head(20).astype(str))
+
+st.subheader("Downloads")
+metrics_summary = {
+    "epsilon": epsilon,
+    "mean_location_error_m": mean_location_error(noisy_df),
+    "max_privacy_radius_m": max_privacy_radius(noisy_df),
+    "service_accuracy": service_accuracy(noisy_df, pois),
+}
+metrics_df = pd.DataFrame([metrics_summary])
+st.download_button(
+    "Download noisy locations (CSV)",
+    noisy_df.to_csv(index=False).encode("utf-8"),
+    "noisy_locations.csv",
+    "text/csv",
+)
+st.download_button(
+    "Download metrics summary (CSV)",
+    metrics_df.to_csv(index=False).encode("utf-8"),
+    "metrics_summary.csv",
+    "text/csv",
+)
