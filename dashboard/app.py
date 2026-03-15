@@ -31,6 +31,7 @@ with st.sidebar:
     data_mode = st.selectbox("Select data source", ["Simulate", "Load sample CSV"])
     seed = st.number_input("Random seed", min_value=0, max_value=10_000, value=42, step=1)
     poi_mode = st.selectbox("POI source", ["Simulated POIs", "Bangalore OSM POIs"])
+    load_pois = st.button("Load OSM POIs")
     privacy_mode = st.selectbox("Privacy control", ["Set epsilon", "Set radius (meters)"])
     if privacy_mode == "Set epsilon":
         epsilon = st.slider("Epsilon (privacy parameter)", min_value=0.1, max_value=2.0, value=0.5, step=0.1)
@@ -51,11 +52,14 @@ noisy_df = apply_noise_to_df(raw_df, epsilon, seed=int(seed))
 
 center_lat = float(raw_df["latitude"].mean())
 center_lon = float(raw_df["longitude"].mean())
-if poi_mode == "Bangalore OSM POIs":
+if poi_mode == "Bangalore OSM POIs" and load_pois:
     try:
-        pois = fetch_bangalore_pois()
+        pois = fetch_bangalore_pois((12.9716, 77.5946))
+        if not pois:
+            st.warning("OSM POIs returned empty. Falling back to simulated POIs.")
+            pois = generate_pois(center_lat, center_lon)
     except Exception:
-        st.warning("OSM POIs unavailable. Falling back to simulated POIs.")
+        st.warning("OSM POIs unavailable (rate limit or network). Falling back to simulated POIs.")
         pois = generate_pois(center_lat, center_lon)
 else:
     pois = generate_pois(center_lat, center_lon)
@@ -76,15 +80,17 @@ def geocode_place(query: str) -> tuple[float, float] | None:
     return float(data[0]["lat"]), float(data[0]["lon"])
 
 @st.cache_data(ttl=3600)
-def fetch_bangalore_pois() -> list[tuple[float, float]]:
+def fetch_bangalore_pois(center: tuple[float, float]) -> list[tuple[float, float]]:
     overpass_url = "https://overpass-api.de/api/interpreter"
-    query = """
+    lat, lon = center
+    query = f"""
     [out:json][timeout:25];
-    area[name="Bengaluru"];
-    (node["amenity"~"hospital|restaurant|school|bank"](area);
-     node["tourism"="attraction"](area);
-     node["shop"="mall"](area););
-    out center 200;
+    (
+      node["amenity"~"hospital|restaurant|school|bank"](around:15000,{lat},{lon});
+      node["tourism"="attraction"](around:15000,{lat},{lon});
+      node["shop"="mall"](around:15000,{lat},{lon});
+    );
+    out 200;
     """
     headers = {"User-Agent": "geo-mask-proj/1.0 (research demo)"}
     resp = requests.get(overpass_url, params={"data": query}, headers=headers, timeout=25)
