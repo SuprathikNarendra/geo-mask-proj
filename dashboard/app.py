@@ -43,23 +43,13 @@ with st.sidebar:
 @st.cache_data
 def load_data(mode: str, seed: int) -> pd.DataFrame:
     if mode == "Load sample CSV":
-        return pd.read_csv("data/sample_locations.csv")
+        return pd.read_csv(ROOT / "data" / "sample_locations.csv")
     return generate_random_trajectories(seed=seed)
 
-raw_df = load_data(data_mode, int(seed))
-noisy_df = apply_noise_to_df(raw_df, epsilon, seed=int(seed))
-
-center_lat = float(raw_df["latitude"].mean())
-center_lon = float(raw_df["longitude"].mean())
-if poi_mode == "Bangalore Cached POIs":
-    try:
-        pois = load_bangalore_pois()
-    except Exception as exc:
-        st.warning("Cached POIs unavailable. Falling back to simulated POIs.")
-        st.error(f"POI load error: {exc}")
-        pois = generate_pois(center_lat, center_lon)
-else:
-    pois = generate_pois(center_lat, center_lon)
+@st.cache_data
+def load_bangalore_pois() -> list[tuple[float, float]]:
+    df = pd.read_csv(ROOT / "data" / "bangalore_pois.csv")
+    return list(zip(df["lat"].astype(float), df["lon"].astype(float)))
 
 @st.cache_data(ttl=3600)
 def geocode_place(query: str) -> tuple[float, float] | None:
@@ -76,10 +66,20 @@ def geocode_place(query: str) -> tuple[float, float] | None:
         return None
     return float(data[0]["lat"]), float(data[0]["lon"])
 
-@st.cache_data
-def load_bangalore_pois() -> list[tuple[float, float]]:
-    df = pd.read_csv(ROOT / "data" / "bangalore_pois.csv")
-    return list(zip(df["lat"].astype(float), df["lon"].astype(float)))
+raw_df = load_data(data_mode, int(seed))
+noisy_df = apply_noise_to_df(raw_df, epsilon, seed=int(seed))
+
+center_lat = float(raw_df["latitude"].mean())
+center_lon = float(raw_df["longitude"].mean())
+if poi_mode == "Bangalore Cached POIs":
+    try:
+        pois = load_bangalore_pois()
+    except Exception as exc:
+        st.warning("Cached POIs unavailable. Falling back to simulated POIs.")
+        st.error(f"POI load error: {exc}")
+        pois = generate_pois(center_lat, center_lon)
+else:
+    pois = generate_pois(center_lat, center_lon)
 
 col1, col2 = st.columns([2, 1])
 
