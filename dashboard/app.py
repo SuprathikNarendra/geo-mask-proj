@@ -54,8 +54,9 @@ center_lon = float(raw_df["longitude"].mean())
 if poi_mode == "Bangalore Cached POIs":
     try:
         pois = load_bangalore_pois()
-    except Exception:
+    except Exception as exc:
         st.warning("Cached POIs unavailable. Falling back to simulated POIs.")
+        st.error(f"POI load error: {exc}")
         pois = generate_pois(center_lat, center_lon)
 else:
     pois = generate_pois(center_lat, center_lon)
