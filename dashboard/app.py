@@ -77,7 +77,7 @@ def geocode_place(query: str) -> tuple[float, float] | None:
 
 @st.cache_data
 def load_bangalore_pois() -> list[tuple[float, float]]:
-    df = pd.read_csv("data/bangalore_pois.csv")
+    df = pd.read_csv(ROOT / "data" / "bangalore_pois.csv")
     return list(zip(df["lat"].astype(float), df["lon"].astype(float)))
 
 col1, col2 = st.columns([2, 1])
