@@ -31,6 +31,7 @@ with st.sidebar:
     data_mode = st.selectbox("Select data source", ["Simulate", "Load sample CSV"])
     seed = st.number_input("Random seed", min_value=0, max_value=10_000, value=42, step=1)
     poi_mode = st.selectbox("POI source", ["Simulated POIs", "Bangalore Cached POIs"])
+    poi_count = st.slider("Simulated POI count", min_value=20, max_value=300, value=120, step=20)
     privacy_mode = st.selectbox("Privacy control", ["Set epsilon", "Set radius (meters)"])
     if privacy_mode == "Set epsilon":
         epsilon = st.slider("Epsilon (privacy parameter)", min_value=0.1, max_value=2.0, value=0.5, step=0.1)
@@ -102,7 +103,7 @@ if poi_mode == "Bangalore Cached POIs":
         poi_rows = []
 
 if not poi_rows:
-    sim_pois = generate_pois(center_lat, center_lon)
+    sim_pois = generate_pois(center_lat, center_lon, count=int(poi_count), seed=int(seed))
     poi_rows = [
         {"name": f"Sim POI {i+1}", "category": "simulated", "lat": lat, "lon": lon}
         for i, (lat, lon) in enumerate(sim_pois)
@@ -206,6 +207,8 @@ with col2:
     st.metric("Mean Location Error (m)", f"{mean_location_error(noisy_df):.2f}")
     st.metric("Max Privacy Radius (m)", f"{max_privacy_radius(noisy_df):.2f}")
     st.metric("Service Accuracy", f"{service_accuracy(noisy_df, pois):.2%}")
+    if len(pois) < 20:
+        st.info("Service accuracy may appear high with very few POIs. Increase POI count for stronger signal.")
 
     attack = evaluate_attacks(noisy_df)
     st.markdown("**Threat Model (Home Inference)**")
@@ -226,7 +229,7 @@ def compute_tradeoff(df: pd.DataFrame):
         noisy = apply_noise_to_df(df, eps)
         center_lat = float(df["latitude"].mean())
         center_lon = float(df["longitude"].mean())
-        pois = generate_pois(center_lat, center_lon)
+        pois = generate_pois(center_lat, center_lon, count=120, seed=int(seed))
         records.append(
             {
                 "epsilon": eps,
