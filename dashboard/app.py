@@ -198,22 +198,33 @@ def compute_tradeoff(df: pd.DataFrame):
 
 tradeoff_df = compute_tradeoff(raw_df.copy())
 
-fig, ax = plt.subplots(1, 2, figsize=(10, 4))
-sns.lineplot(data=tradeoff_df, x="epsilon", y="mean_error_m", marker="o", ax=ax[0])
-ax[0].set_title("Epsilon vs Mean Error")
-ax[0].set_ylabel("Mean Error (m)")
+col_t1, col_t2, col_t3 = st.columns(3)
+with col_t1:
+    fig, ax = plt.subplots(figsize=(3.6, 3))
+    sns.lineplot(data=tradeoff_df, x="epsilon", y="mean_error_m", marker="o", ax=ax)
+    ax.set_title("Epsilon vs Mean Error")
+    ax.set_ylabel("Mean Error (m)")
+    ax.set_xlabel("Epsilon")
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=True)
 
-sns.lineplot(data=tradeoff_df, x="epsilon", y="service_accuracy", marker="o", ax=ax[1])
-ax[1].set_title("Epsilon vs Service Accuracy")
-ax[1].set_ylabel("Accuracy")
+with col_t2:
+    fig, ax = plt.subplots(figsize=(3.6, 3))
+    sns.lineplot(data=tradeoff_df, x="epsilon", y="service_accuracy", marker="o", ax=ax)
+    ax.set_title("Epsilon vs Service Accuracy")
+    ax.set_ylabel("Accuracy")
+    ax.set_xlabel("Epsilon")
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=True)
 
-st.pyplot(fig)
-
-fig2, ax2 = plt.subplots(figsize=(5, 4))
-sns.lineplot(data=tradeoff_df, x="epsilon", y="traj_error_m", marker="o", ax=ax2)
-ax2.set_title("Epsilon vs Trajectory Reconstruction Error")
-ax2.set_ylabel("Error (m)")
-st.pyplot(fig2)
+with col_t3:
+    fig, ax = plt.subplots(figsize=(3.6, 3))
+    sns.lineplot(data=tradeoff_df, x="epsilon", y="traj_error_m", marker="o", ax=ax)
+    ax.set_title("Epsilon vs Trajectory Error")
+    ax.set_ylabel("Error (m)")
+    ax.set_xlabel("Epsilon")
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=True)
 
 st.subheader("Privatized Data Preview")
 st.dataframe(noisy_df.head(20).astype(str))
@@ -226,19 +237,26 @@ with tab1:
         haversine_m(r.latitude, r.longitude, r.noisy_latitude, r.noisy_longitude)
         for r in noisy_df.itertuples()
     ]
-    fig3, ax3 = plt.subplots(1, 2, figsize=(10, 4))
-    sns.histplot(errors, bins=30, ax=ax3[0], color="#d62728")
-    ax3[0].set_title("Noise Distance Histogram")
-    ax3[0].set_xlabel("Distance (m)")
-    ax3[0].set_ylabel("Count")
+    col_e1, col_e2 = st.columns(2)
+    with col_e1:
+        fig, ax = plt.subplots(figsize=(3.8, 3))
+        sns.histplot(errors, bins=30, ax=ax, color="#d62728")
+        ax.set_title("Noise Distance Histogram")
+        ax.set_xlabel("Distance (m)")
+        ax.set_ylabel("Count")
+        fig.tight_layout()
+        st.pyplot(fig, use_container_width=True)
 
-    sorted_err = np.sort(errors)
-    cdf = np.arange(1, len(sorted_err) + 1) / len(sorted_err) if len(sorted_err) else []
-    ax3[1].plot(sorted_err, cdf, color="#1f77b4")
-    ax3[1].set_title("Noise Distance CDF")
-    ax3[1].set_xlabel("Distance (m)")
-    ax3[1].set_ylabel("CDF")
-    st.pyplot(fig3)
+    with col_e2:
+        fig, ax = plt.subplots(figsize=(3.8, 3))
+        sorted_err = np.sort(errors)
+        cdf = np.arange(1, len(sorted_err) + 1) / len(sorted_err) if len(sorted_err) else []
+        ax.plot(sorted_err, cdf, color="#1f77b4")
+        ax.set_title("Noise Distance CDF")
+        ax.set_xlabel("Distance (m)")
+        ax.set_ylabel("CDF")
+        fig.tight_layout()
+        st.pyplot(fig, use_container_width=True)
 
 with tab2:
     eps_values = [0.1, 0.3, 0.5, 1.0, 2.0]
@@ -253,12 +271,13 @@ with tab2:
                 }
             )
     err_df = pd.DataFrame(samples)
-    fig4, ax4 = plt.subplots(figsize=(8, 4))
-    sns.boxplot(data=err_df, x="epsilon", y="error_m", ax=ax4)
-    ax4.set_title("Location Error Distribution by Epsilon")
-    ax4.set_xlabel("Epsilon")
-    ax4.set_ylabel("Error (m)")
-    st.pyplot(fig4)
+    fig, ax = plt.subplots(figsize=(6.5, 3))
+    sns.boxplot(data=err_df, x="epsilon", y="error_m", ax=ax)
+    ax.set_title("Location Error Distribution by Epsilon")
+    ax.set_xlabel("Epsilon")
+    ax.set_ylabel("Error (m)")
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=True)
 
 st.subheader("Downloads")
 metrics_summary = {
