@@ -47,9 +47,21 @@ def load_data(mode: str, seed: int) -> pd.DataFrame:
     return generate_random_trajectories(seed=seed)
 
 @st.cache_data
-def load_bangalore_pois() -> list[tuple[float, float]]:
-    df = pd.read_csv(ROOT / "data" / "bangalore_pois.csv")
-    return list(zip(df["lat"].astype(float), df["lon"].astype(float)))
+def load_bangalore_pois() -> pd.DataFrame:
+    return pd.read_csv(ROOT / "data" / "bangalore_pois.csv")
+
+
+def nearest_poi_info(lat: float, lon: float, poi_rows: list[dict]) -> dict | None:
+    if not poi_rows:
+        return None
+    best = None
+    best_dist = float("inf")
+    for row in poi_rows:
+        d = haversine_m(lat, lon, row["lat"], row["lon"])
+        if d < best_dist:
+            best_dist = d
+            best = {**row, "distance_m": d}
+    return best
 
 @st.cache_data(ttl=3600)
 def geocode_place(query: str) -> tuple[float, float] | None:
@@ -71,15 +83,32 @@ noisy_df = apply_noise_to_df(raw_df, epsilon, seed=int(seed))
 
 center_lat = float(raw_df["latitude"].mean())
 center_lon = float(raw_df["longitude"].mean())
+poi_rows = []
 if poi_mode == "Bangalore Cached POIs":
     try:
-        pois = load_bangalore_pois()
+        df_pois = load_bangalore_pois()
+        poi_rows = [
+            {
+                "name": row["name"],
+                "category": row["category"],
+                "lat": float(row["lat"]),
+                "lon": float(row["lon"]),
+            }
+            for _, row in df_pois.iterrows()
+        ]
     except Exception as exc:
         st.warning("Cached POIs unavailable. Falling back to simulated POIs.")
         st.error(f"POI load error: {exc}")
-        pois = generate_pois(center_lat, center_lon)
-else:
-    pois = generate_pois(center_lat, center_lon)
+        poi_rows = []
+
+if not poi_rows:
+    sim_pois = generate_pois(center_lat, center_lon)
+    poi_rows = [
+        {"name": f"Sim POI {i+1}", "category": "simulated", "lat": lat, "lon": lon}
+        for i, (lat, lon) in enumerate(sim_pois)
+    ]
+
+pois = [(row["lat"], row["lon"]) for row in poi_rows]
 
 col1, col2 = st.columns([2, 1])
 
@@ -121,6 +150,19 @@ with col1:
             weight=2,
             opacity=0.7,
         ).add_to(fmap)
+
+        true_poi = nearest_poi_info(origin[0], origin[1], poi_rows)
+        noisy_poi = nearest_poi_info(noisy_origin_lat, noisy_origin_lon, poi_rows)
+        if true_poi and noisy_poi:
+            st.markdown("**Nearest POI Comparison**")
+            st.write(
+                f"True location → {true_poi['name']} ({true_poi['category']}), "
+                f"{true_poi['distance_m']:.0f} m"
+            )
+            st.write(
+                f"Masked location → {noisy_poi['name']} ({noisy_poi['category']}), "
+                f"{noisy_poi['distance_m']:.0f} m"
+            )
     else:
         st.warning("Origin not found. Try a more specific Bangalore location.")
 
